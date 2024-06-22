@@ -9,7 +9,7 @@ from diffusers import StableDiffusionPipeline
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import *
 import torch
 
-class PairedDiffusionPipeline(StableDiffusionPipeline):
+class MyDiffusionPipeline(StableDiffusionPipeline):
     @torch.no_grad()
     def __call__(
         self,
@@ -326,7 +326,7 @@ class PairedDiffusionPipeline(StableDiffusionPipeline):
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
 
 from diffusers.schedulers.scheduling_euler_discrete import *
-class PairedEulerDiscreteScheduler(EulerDiscreteScheduler):
+class MyEulerDiscreteScheduler(EulerDiscreteScheduler):
     def step(
         self,
         model_output: torch.Tensor,
@@ -422,10 +422,8 @@ class PairedEulerDiscreteScheduler(EulerDiscreteScheduler):
 
         dt = self.sigmas[self.step_index + 1] - sigma_hat
 
-        # paired diffusion
         prev_sample = torch.zeros_like(sample)
-        prev_sample[0] = sample[0] + derivative[0] * dt
-        prev_sample[1] = sample[1] + derivative[1] * dt + (sample[0] - sample[1]) * (-0.1)
+        prev_sample = sample + derivative * dt
 
         # Cast sample back to model compatible dtype
         prev_sample = prev_sample.to(model_output.dtype)
@@ -440,7 +438,7 @@ class PairedEulerDiscreteScheduler(EulerDiscreteScheduler):
 
 
 
-pipeline = PairedDiffusionPipeline.from_pretrained(
+pipeline = MyDiffusionPipeline.from_pretrained(
 	"runwayml/stable-diffusion-v1-5", torch_dtype=torch.float16, variant="fp16"
 ).to("cuda")
 
@@ -448,13 +446,13 @@ pipeline = PairedDiffusionPipeline.from_pretrained(
 
 
 # load a different scheduler
-pipeline.scheduler = PairedEulerDiscreteScheduler.from_config(pipeline.scheduler.config)
+pipeline.scheduler = MyEulerDiscreteScheduler.from_config(pipeline.scheduler.config)
 
 # generate and save image
 generator = torch.Generator("cuda").manual_seed(31)
 prompt = [
     "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
-    "pizza, Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
+    "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
 ]
 images = pipeline(
     prompt=prompt, 
